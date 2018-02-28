@@ -53,6 +53,18 @@ class RunnableAndStoppableMixin(object):
 		self._sleep_time_when_restarting = sleep_time_when_restarting
 		super(RunnableAndStoppableMixin, self).__init__(**kwargs)
 
+	def get_threads_to_run(self):
+		"""
+		Get threads and synchronous runnable functions for running tree stream.
+		"""
+		self._pre_run()
+		for thread in self._get_threads_to_run():
+			yield thread, partial(self._run_iterator, thread)
+
+	def _run_iterator(self, thread):
+		for sleep_time in thread.run():
+			sleep(sleep_time or 0)
+
 	def _get_threads_to_run(self):
 		"""
 		Returns: List[thread: ThreadBase]
@@ -129,11 +141,12 @@ class RunnableAndStoppableMixin(object):
 
 	def _set_stop(self, value):
 		with self._runnable_lock:
-			if self._stop_requested.is_set():
-				return
-			self._stop_requested.set()
-			self._stop_requested_type = value
-			self._stop_or_restart()
+			if self._stop_requested_type is not self.STOP_NORESTART:
+				# Allow escalation from restart to stop
+				self._stop_requested_type = value
+			if not self._stop_requested.is_set():
+				self._stop_requested.set()
+				self._stop_or_restart()
 
 	def stop(self):
 		self._logger.info('stop requested')
