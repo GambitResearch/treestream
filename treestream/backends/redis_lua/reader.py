@@ -1,8 +1,9 @@
 from __future__ import absolute_import
 
 import logging
+import six
 import weakref
-from Queue import Queue, Empty
+from six.moves import queue
 from threading import Event
 from redis.exceptions import TimeoutError
 from time import time
@@ -37,7 +38,7 @@ class SharedState(object):
 			max_buffer_size,
 			socket_timeout,
 			extra_redis_connection_pool_opts):
-		self.pubsub_queue = Queue(maxsize=max_buffer_size)
+		self.pubsub_queue = queue.Queue(maxsize=max_buffer_size)
 		self.synced = Event()
 		self.is_subscribed = Event()
 		self.lag = 0.0
@@ -254,7 +255,7 @@ class SyncerThread(ThreadBase):
 			# self._logger.debug('syncer: waiting for %d', start_xid)
 			try:
 				data = state.pubsub_queue.get(timeout=self._stop_check_period)
-			except Empty:
+			except queue.Empty:
 				continue
 			self._reader._process_message(data, run_callbacks=False)
 
@@ -276,8 +277,8 @@ class SyncerThread(ThreadBase):
 
 		all_node_ptrs = {
 			node
-			for children_of_node in adjacency_dict.itervalues()
-			for node in children_of_node.itervalues()
+			for children_of_node in six.itervalues(adjacency_dict)
+			for node in six.itervalues(children_of_node)
 		}
 		all_node_ptrs.add(root_ptr) # root_ptr is no-one's child
 		all_node_ptrs = list(all_node_ptrs)
@@ -286,7 +287,7 @@ class SyncerThread(ThreadBase):
 
 		values_key = self._keys['values']
 		self._logger.info('syncer: querying values')
-		for i in xrange(0, len(all_node_ptrs), SYNC_MULTIGET_BATCH_SIZE):
+		for i in range(0, len(all_node_ptrs), SYNC_MULTIGET_BATCH_SIZE):
 			batch = all_node_ptrs[i:i + SYNC_MULTIGET_BATCH_SIZE]
 			all_node_values += self._redis.hmget(values_key, batch)
 		self._logger.info('syncer: got values')
@@ -359,7 +360,7 @@ class CallbacksThread(ThreadBase):
 			while not self._reader.should_stop():
 				try:
 					message = state.pubsub_queue.get(timeout=self._stop_check_period)
-				except Empty:
+				except queue.Empty:
 					continue
 
 				self._reader._process_message(message)
@@ -499,7 +500,7 @@ class RedisTreeReader(RunnableAndStoppableMixin, TreeReader):
 		xid = data[0]
 		timestamp = data[1]
 		op = data[2]
-		tree_path = map(self._decode_edge_label, data[3])
+		tree_path = [self._decode_edge_label(l) for l in data[3]]
 		state = self.state
 
 		# We sometimes generate a fake message, which has xid=0

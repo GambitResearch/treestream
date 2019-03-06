@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 
+from six.moves import queue
 from time import sleep
-from Queue import Queue
 
 from treestream.exceptions import TreeWriterError
 from treestream.utils import ThreadBase
@@ -119,7 +119,7 @@ class TreeWriter(object):
 class MsgpackWriterMixin(object):
 	def update(self, tree_path, value, *args, **kwargs):
 		super(MsgpackWriterMixin, self).update(
-			map(msgpack_dumps, tree_path),
+			[msgpack_dumps(i) for i in tree_path],
 			msgpack_dumps(value),
 			*args,
 			**kwargs
@@ -127,7 +127,7 @@ class MsgpackWriterMixin(object):
 
 	def delete(self, tree_path, *args, **kwargs):
 		super(MsgpackWriterMixin, self).delete(
-			map(msgpack_dumps, tree_path),
+			[msgpack_dumps(i) for i in tree_path],
 			*args,
 			**kwargs
 		)
@@ -145,7 +145,7 @@ class NonblockingWriterThread(ThreadBase):
 			delete_func):
 		self._exc_handler = exc_handler
 		self.sleep_seconds_on_exception = sleep_seconds_on_exception
-		self.ops_queue = Queue(maxsize=10000)
+		self.ops_queue = queue.Queue(maxsize=10000)
 		self._logger = logger
 		self._update_func = update_func
 		self._update_many_func = update_many_func

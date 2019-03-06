@@ -1,11 +1,12 @@
 from __future__ import absolute_import
 
 import logging
+import six
 import sys
 import weakref
-from threading import Event, RLock
+from threading import Event
 from redis.exceptions import TimeoutError, RedisError, ConnectionError
-from time import time, sleep
+from time import time
 
 from treestream.exceptions import (
 	TreeWriterError,
@@ -127,7 +128,7 @@ class GcThread(ThreadBase):
 
 		# Bucko: delete the nodes in the reverse order they were created in (since we don't have
 		# a dfs_redis_tree implementation)
-		all_node_ptrs = map(str, sorted(map(int, all_node_ptrs), reverse=True))
+		all_node_ptrs = sorted(all_node_ptrs, key=int, reverse=True)
 
 		self._logger.info('GC-ing %d nodes', len(all_node_ptrs))
 		self._delete_nodes(all_node_ptrs)
@@ -138,7 +139,7 @@ class GcThread(ThreadBase):
 		del_command = 'UNLINK' if self._use_redis4_features else 'DEL'
 		values = self._keys['values']
 		move_into = self._keys['nodes_being_deleted_set']
-		for i in xrange(0, len(node_ptrs), GC_DELETE_BATCH_SIZE):
+		for i in six.moves.xrange(0, len(node_ptrs), GC_DELETE_BATCH_SIZE):
 			nodes_batch = node_ptrs[i:i + GC_DELETE_BATCH_SIZE]
 			keys_batch = [children_key_prefix + node_ptr for node_ptr in nodes_batch]
 			with self._redis.pipeline(transaction=False) as pipeline:
@@ -265,8 +266,8 @@ class RedisTreeWriter(RunnableAndStoppableMixin, TreeWriter):
 		See the documentation of TreeWriter.update.
 		"""
 		assert isinstance(tree_path, (list, tuple))
-		assert all(isinstance(label, (str, unicode)) for label in tree_path)
-		assert isinstance(value, (str, unicode))
+		assert all(isinstance(label, six.string_types) for label in tree_path)
+		assert isinstance(value, six.string_types)
 		try:
 			xid_or_error = self.scripts_manager.evalsha(
 				'update',
@@ -275,23 +276,23 @@ class RedisTreeWriter(RunnableAndStoppableMixin, TreeWriter):
 				pipeline=pipeline,
 			)
 
-			if isinstance(xid_or_error, (int, long)):
+			if isinstance(xid_or_error, six.integer_types):
 				return xid_or_error
 			elif isinstance(xid_or_error, str):
 				raise TreeWriterError(xid_or_error)
 			elif xid_or_error is not None:
 				raise ValueError(xid_or_error)
 		except (ConnectionError, TimeoutError) as e:
-			raise RetryableTreeWriterError(e.message), None, sys.exc_info()[2]
+			six.reraise(RetryableTreeWriterError(e.message), None, sys.exc_info()[2])
 		except RedisError as e:
-			raise TreeWriterError(e.message), None, sys.exc_info()[2]
+			six.reraise(TreeWriterError(e.message), None, sys.exc_info()[2])
 
 	def delete(self, tree_path, pipeline=None):
 		"""
 		See the documentation of TreeWriter.delete.
 		"""
 		assert isinstance(tree_path, (list, tuple))
-		assert all(isinstance(label, (str, unicode)) for label in tree_path)
+		assert all(isinstance(label, six.string_types) for label in tree_path)
 		try:
 			xid = self.scripts_manager.evalsha(
 				'delete',
@@ -302,9 +303,9 @@ class RedisTreeWriter(RunnableAndStoppableMixin, TreeWriter):
 
 			return xid
 		except (ConnectionError, TimeoutError) as e:
-			raise RetryableTreeWriterError(e.message), None, sys.exc_info()[2]
+			six.reraise(RetryableTreeWriterError(e.message), None, sys.exc_info()[2])
 		except RedisError as e:
-			raise TreeWriterError(e.message), None, sys.exc_info()[2]
+			six.reraise(TreeWriterError(e.message), None, sys.exc_info()[2])
 
 	def update_many(self, base_tree_path, values, level=NONTRANSACTIONAL):
 		"""

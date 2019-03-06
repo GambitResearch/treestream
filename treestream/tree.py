@@ -1,5 +1,6 @@
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 
+import six
 from functools import wraps
 from threading import RLock
 
@@ -56,12 +57,12 @@ class Tree(object):
 			root_ptr,
 			used_node_ptrs)
 
-		unused_adjacency_lists = adjacency_dict.viewkeys() - used_node_ptrs
+		unused_adjacency_lists = set(adjacency_dict) - used_node_ptrs
 		assert not unused_adjacency_lists, (
 			'Adjacency list defined for some unreachable nodes',
 			unused_adjacency_lists)
 
-		unused_values = values.viewkeys() - used_node_ptrs
+		unused_values = set(values) - used_node_ptrs
 		assert not unused_values, (
 			'Values defined for some unreachable nodes',
 			unused_values)
@@ -74,7 +75,7 @@ class Tree(object):
 		direct_arcs = adjacency_dict.get(root_ptr, None)
 		children = {}
 		if direct_arcs is not None:
-			for arc_label, child_ptr in direct_arcs.iteritems():
+			for arc_label, child_ptr in six.iteritems(direct_arcs):
 				child = cls._from_adjacency_dict_and_values(
 					adjacency_dict,
 					values,
@@ -110,7 +111,7 @@ class Tree(object):
 				if child_tree.value is not None else ''
 
 			separator = ' ' * max(1, width - len(node_part))
-			print node_part + separator + value_part
+			print(node_part + separator + value_part)
 
 			child_tree.pretty_print(depth=depth + 1, width=width)
 
@@ -196,7 +197,7 @@ class Tree(object):
 		return Tree(
 			children={
 				edge_label: child.copy()
-				for (edge_label, child) in self.children.iteritems()
+				for (edge_label, child) in six.iteritems(self.children)
 			},
 			value=self.value,
 		)
@@ -249,7 +250,7 @@ class Tree(object):
 		if self.value is not None:
 			yield self.value
 
-		for edge_label, child in self.children.iteritems():
+		for edge_label, child in six.iteritems(self.children):
 			tree_path.append(edge_label)
 			for val in child.get_leaves_with_values(tree_path):
 				yield val
