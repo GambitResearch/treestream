@@ -1,9 +1,9 @@
 from __future__ import absolute_import
 
+import six
 from collections import deque
 from threading import RLock
 from socket import TCP_KEEPIDLE, TCP_KEEPINTVL
-from time import time
 
 from redis import Redis, ConnectionPool
 from redis.exceptions import NoScriptError
@@ -87,7 +87,7 @@ def bfs_redis_tree(
 	queue = deque([(str(node), 0) for node in starting_nodes]) # [(node_ptr: str, cursor: int)]
 	while queue:
 		queries = []
-		for i in xrange(max_queries_per_pipeline):
+		for _ in six.moves.xrange(max_queries_per_pipeline):
 			try:
 				queries.append(queue.popleft())
 			except IndexError:
@@ -106,7 +106,7 @@ def bfs_redis_tree(
 				# We didn't get all children of this node yet
 				queue.append((node_ptr, new_cursor))
 
-			for child_name, child_ptr in children.iteritems():
+			for child_name, child_ptr in six.iteritems(children):
 				queue.append((child_ptr, 0))
 				yield (node_ptr, child_ptr, child_name)
 
@@ -187,7 +187,7 @@ class RedisScriptsManager(object):
 
 			log = ['Registered scripts:'] + [
 				'\t{script_name} ({sha})'.format(script_name=script_name, sha=sha)
-				for script_name, sha in self._script_shas.iteritems()
+				for script_name, sha in self._script_shas.items()
 			]
 
 			self._logger.info('\n'.join(log))

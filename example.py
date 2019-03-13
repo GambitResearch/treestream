@@ -57,7 +57,7 @@ def writer1():
 
 	def loop():
 		while True:
-			tree_path = [str(randrange(3)) for _ in xrange(3)]
+			tree_path = [str(randrange(3)) for _ in range(3)]
 			value = str(randrange(1000,10000))
 			wr.update(tree_path, value)
 			sleep(random() * 0.1)
@@ -72,7 +72,7 @@ def writer2():
 
 	def loop():
 		while True:
-			tree_path_prefix = [str(randrange(3)) for _ in xrange(randrange(4))]
+			tree_path_prefix = [str(randrange(3)) for _ in range(randrange(4))]
 			tprint('DELETING', tree_path_prefix)
 			wr.delete(tree_path_prefix)
 			sleep(random() * 5.0)

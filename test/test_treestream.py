@@ -2,10 +2,11 @@ import unittest
 import logging
 import sys
 import mock
+import six
+from six.moves import queue
 from uuid import uuid1
 from threading import Thread, Event
 from time import sleep, time
-from Queue import Queue
 
 from treestream import (
 	MsgpackReaderMixin,
@@ -41,24 +42,24 @@ class TreeTest(unittest.TestCase):
 
 	def test_apply_update(self):
 		old_value = self.tree.apply_update(('1', '1'), 'xx')
-		self.assertEquals('x', old_value)
-		self.assertEquals(self.WHOLE_TREE.replace("'x'", "'xx'"), self.tree.inline_str())
+		self.assertEqual('x', old_value)
+		self.assertEqual(self.WHOLE_TREE.replace("'x'", "'xx'"), self.tree.inline_str())
 
 	def test_apply_delete0(self):
 		deleted_subtree = self.tree.apply_delete(())
-		self.assertEquals(self.WHOLE_TREE, deleted_subtree.inline_str())
-		self.assertEquals("-", self.tree.inline_str())
+		self.assertEqual(self.WHOLE_TREE, deleted_subtree.inline_str())
+		self.assertEqual("-", self.tree.inline_str())
 
 	def test_apply_delete1(self):
 		deleted_subtree = self.tree.apply_delete(('1',))
-		self.assertEquals(self.LEFT_TREE, deleted_subtree.inline_str())
-		self.assertEquals("(2=%s)" % self.RIGHT_TREE, self.tree.inline_str())
+		self.assertEqual(self.LEFT_TREE, deleted_subtree.inline_str())
+		self.assertEqual("(2=%s)" % self.RIGHT_TREE, self.tree.inline_str())
 
 	def test_apply_delete2(self):
 		for (tree_path, value) in self.LEAVES:
 			deleted_subtree = self.tree.apply_delete(tree_path)
-			self.assertEquals("|'%s'|" % value, deleted_subtree.inline_str())
-		self.assertEquals("-", self.tree.inline_str())
+			self.assertEqual("|'%s'|" % value, deleted_subtree.inline_str())
+		self.assertEqual("-", self.tree.inline_str())
 
 	def test_no_internal_values(self):
 		with self.assertRaises(KeyError):
@@ -68,7 +69,7 @@ class TreeTest(unittest.TestCase):
 		# Given the tree 1->1->1->1, ensure that delete((1,1,1)) deletes the whole path, rather
 		# than leak dangling internal nodes
 		for with_extra_path in (False, True):
-			for i in xrange(1, 5):
+			for i in range(1, 5):
 				tree = Tree()
 				tree.apply_update(['1'] * 4, 'x')
 				if with_extra_path:
@@ -76,18 +77,18 @@ class TreeTest(unittest.TestCase):
 
 				deleted_subtree = tree.apply_delete(['1'] * i)
 				expected_deleted_subtree = "(1=" * (4-i) + "|'x'|" + ")" * (4-i)
-				self.assertEquals(expected_deleted_subtree, deleted_subtree.inline_str())
+				self.assertEqual(expected_deleted_subtree, deleted_subtree.inline_str())
 				if with_extra_path:
-					self.assertEquals("(2=|'y'|)", tree.inline_str())
+					self.assertEqual("(2=|'y'|)", tree.inline_str())
 				else:
-					self.assertEquals("-", tree.inline_str())
+					self.assertEqual("-", tree.inline_str())
 
 	def test_get_value(self):
 		for exp, tree_path in (
 				('y', ('1', '2')),
 				(None, ('2',)),
 			):
-			self.assertEquals(exp, self.tree.get_value(tree_path))
+			self.assertEqual(exp, self.tree.get_value(tree_path))
 
 	def test_traverse(self):
 		for exp, tree_path in (
@@ -95,7 +96,7 @@ class TreeTest(unittest.TestCase):
 				(self.LEFT_TREE, ('1',)),
 				("|'z'|", ('2', '1')),
 			):
-			self.assertEquals(exp, self.tree.traverse(tree_path).inline_str())
+			self.assertEqual(exp, self.tree.traverse(tree_path).inline_str())
 
 	def test_from_adjacency_dict(self):
 		tree = Tree.from_adjacency_dict_and_values(
@@ -107,7 +108,7 @@ class TreeTest(unittest.TestCase):
 			{'1.1': 'x', '1.2': 'y', '2.1': 'z', '2.2': 't'},
 			''
 		)
-		self.assertEquals(self.WHOLE_TREE, tree.inline_str())
+		self.assertEqual(self.WHOLE_TREE, tree.inline_str())
 
 	def test_bad_from_adjacency_dict(self):
 		with self.assertRaises(AssertionError):
@@ -117,7 +118,7 @@ class TreeTest(unittest.TestCase):
 			Tree.from_adjacency_dict_and_values({}, {'x': 'y'}, '')
 
 	def test_copy(self):
-		self.assertEquals(self.tree.copy().inline_str(), self.tree.inline_str())
+		self.assertEqual(self.tree.copy().inline_str(), self.tree.inline_str())
 
 	def test_get_leaves_with_values(self):
 		tree_path = []
@@ -125,7 +126,7 @@ class TreeTest(unittest.TestCase):
 			(tuple(tree_path), value)
 			for value in self.tree.get_leaves_with_values(tree_path)
 		]
-		self.assertEquals(self.LEAVES, actual_leaves)
+		self.assertEqual(self.LEAVES, actual_leaves)
 
 
 class MyReader(RedisTreeReader):
@@ -135,7 +136,7 @@ class MyReader(RedisTreeReader):
 		super(MyReader, self).__init__(**kwargs)
 		self.all_trees = {0: Tree()}
 		self.got_new_tree = Event()
-		self.syncs = Queue()
+		self.syncs = queue.Queue()
 
 		self.clear_recorded_callbacks()
 
@@ -312,7 +313,7 @@ class BasicTest(unittest.TestCase):
 
 		self.assert_tree("(x=(y=%s))" % TreeTest.WHOLE_TREE)
 		assert len(xids) == 4
-		assert all(isinstance(xid, (int, long)) for xid in xids)
+		assert all(isinstance(xid, six.integer_types) for xid in xids)
 
 	def get_redis_keys(self):
 		return set(self.writer.redis.keys(self.tree_name + '::*'))
@@ -321,7 +322,7 @@ class BasicTest(unittest.TestCase):
 		my_tree = Tree()
 		expected_update_callbacks = []
 		expected_delete_callbacks = set()
-		for i in xrange(32):
+		for i in range(32):
 			# ('0', '0', '0', '0', '0') .. ('1', '1', '1', '1', '1')
 			tree_path = tuple(bin(i)[2:].rjust(5, '0'))
 			my_tree.apply_update(tree_path, str(i))
@@ -333,14 +334,14 @@ class BasicTest(unittest.TestCase):
 		self.assert_tree(my_tree.inline_str())
 		# reader1 callbacks came from a sync, so we can't guarantee they came in the same order,
 		# since the xid of the update is not stored in the tree.
-		self.assertEquals(set(expected_update_callbacks), set(self.reader1.update_callbacks))
-		self.assertEquals(expected_update_callbacks, self.reader2.update_callbacks)
+		self.assertEqual(set(expected_update_callbacks), set(self.reader1.update_callbacks))
+		self.assertEqual(expected_update_callbacks, self.reader2.update_callbacks)
 
 		# delete whole tree
 		self.delete(())
 		self.assert_tree('-')
-		self.assertEquals([((), my_tree.inline_str())], self.reader2.delete_subtree_callbacks)
-		self.assertEquals(expected_delete_callbacks, set(self.reader2.delete_callbacks))
+		self.assertEqual([((), my_tree.inline_str())], self.reader2.delete_subtree_callbacks)
+		self.assertEqual(expected_delete_callbacks, set(self.reader2.delete_callbacks))
 
 		sleep(0.5) # wait for the gc to run
 		self.assert_redis_is_empty()
@@ -351,7 +352,7 @@ class BasicTest(unittest.TestCase):
 			self.tree_name + '::xid', self.tree_name + '::ptr_counter'}, redis_keys
 
 	def assert_redis_eventually_empty(self):
-		for i in xrange(10):
+		for i in range(10):
 			sleep(0.1)
 			if len(self.get_redis_keys()) <= 2:
 				break
@@ -378,24 +379,24 @@ class BasicTest(unittest.TestCase):
 
 		self.assert_tree("(1=%s)" % TreeTest.LEFT_TREE)
 
-		self.assertEquals(
+		self.assertEqual(
 			{
 				(('1', '1'), None, 'x'),
 				(('1', '2'), None, 'y'),
 			},
 			set(self.reader1.update_callbacks))
-		self.assertEquals(
+		self.assertEqual(
 			[
 				(tree_path, None, value)
 				for tree_path, value in tree
 			],
 			self.reader2.update_callbacks)
 
-		self.assertEquals(
+		self.assertEqual(
 			[(('2',), TreeTest.RIGHT_TREE)],
 			self.reader2.delete_subtree_callbacks)
 
-		self.assertEquals(
+		self.assertEqual(
 			{
 				(('2', '1'), 'z'),
 				(('2', '2'), 't'),
@@ -431,7 +432,7 @@ class BasicTest(unittest.TestCase):
 
 		# We should get a delete callback for the subtree we've called delete() on, not the
 		# subtree that effectively got deleted.
-		self.assertEquals(
+		self.assertEqual(
 			[(('a', 'b'), "(c=(d=|'1'|))")],
 			self.reader2.delete_subtree_callbacks)
 
@@ -493,12 +494,12 @@ class MsgpackTest(unittest.TestCase):
 		sleep(0.1)
 		path1 = (1, 2, 5, 6.0, '7')
 		path2 = (1, 2, 3, 4.5)
-		self.assertEquals(
+		self.assertEqual(
 			[(path1, None, value1), (path2, None, value2)],
 			self.reader.update_callbacks)
 
 		expected_deletions = [(path1, value1), (path2, value2)]
-		self.assertEquals(sorted(expected_deletions), sorted(self.reader.delete_callbacks))
+		self.assertEqual(sorted(expected_deletions), sorted(self.reader.delete_callbacks))
 
 	def tearDown(self):
 		redis = self.writer.redis
