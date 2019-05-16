@@ -82,7 +82,7 @@ class StreamProcessorThread(ThreadBase):
 			pubsub.subscribe(channel_name)
 
 			response = pubsub.parse_response(block=True)
-			if response[:2] != ['subscribe', channel_name]:
+			if response[:2] != [b'subscribe', channel_name.encode('utf-8')]:
 				raise TreeReaderError('could not subscribe: ' + repr(response))
 
 			yield
@@ -131,7 +131,7 @@ class StreamProcessorThread(ThreadBase):
 				continue
 
 			# redispy's handle_message can't handle pubsub pong responses
-			if response[0] == 'pong':
+			if response[0] == b'pong':
 				got_pong_at = now
 				state.lag = got_pong_at - ping_sent_at
 				self._logger.debug('stream: pong! (%.3fms roundtrip)', state.lag * 1000.)
@@ -217,7 +217,7 @@ class SyncerThread(ThreadBase):
 				state.current_tree_xid)
 			return
 
-		assert isinstance(root_ptr, str)
+		assert isinstance(root_ptr, bytes)
 
 		self._logger.info(
 			'syncer: asking for tree with root_ptr=%s (start_xid=%s)',
