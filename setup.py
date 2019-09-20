@@ -18,7 +18,7 @@ setup(
 		'treestream.backends',
 		'treestream.backends.redis_lua'
 	],
-	install_requires=['mock', 'redispy', 'six'],
+	install_requires=['mock', 'redis', 'six'],
 	extras_require=EXTRAS_REQUIRE,
 	setup_requires=['setuptools_scm'],
 	author_email='devteam@gambitresearch.com',
