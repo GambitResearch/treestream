@@ -267,7 +267,7 @@ class RedisTreeWriter(RunnableAndStoppableMixin, TreeWriter):
 		"""
 		assert isinstance(tree_path, (list, tuple))
 		assert all(isinstance(label, six.string_types) for label in tree_path)
-		assert isinstance(value, six.string_types)
+		assert isinstance(value, (six.binary_type, six.text_type))
 		try:
 			xid_or_error = self.scripts_manager.evalsha(
 				'update',
