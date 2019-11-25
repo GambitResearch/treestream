@@ -283,9 +283,9 @@ class RedisTreeWriter(RunnableAndStoppableMixin, TreeWriter):
 			elif xid_or_error is not None:
 				raise ValueError(xid_or_error)
 		except (ConnectionError, TimeoutError) as e:
-			six.reraise(RetryableTreeWriterError(str(e)), None, sys.exc_info()[2])
+			six.raise_from(RetryableTreeWriterError(str(e)), e)
 		except RedisError as e:
-			six.reraise(TreeWriterError(str(e)), None, sys.exc_info()[2])
+			six.raise_from(TreeWriterError(str(e)), e)
 
 	def delete(self, tree_path, pipeline=None):
 		"""
@@ -303,9 +303,9 @@ class RedisTreeWriter(RunnableAndStoppableMixin, TreeWriter):
 
 			return xid
 		except (ConnectionError, TimeoutError) as e:
-			six.reraise(RetryableTreeWriterError(str(e)), None, sys.exc_info()[2])
+			six.raise_from(RetryableTreeWriterError(str(e)), e)
 		except RedisError as e:
-			six.reraise(TreeWriterError(str(e)), None, sys.exc_info()[2])
+			six.raise_from(TreeWriterError(str(e)), e)
 
 	def update_many(self, base_tree_path, values, level=NONTRANSACTIONAL):
 		"""
