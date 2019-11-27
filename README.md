@@ -14,9 +14,15 @@ A *reader*, upon creation, obtains a *sync* from redis with the current state
 of the tree, then proceeds to listen to the stream and apply the incremental
 changes from the writers, providing callbacks to the user.
 
-This currently only works with Python2, and the only currently supported
+This mostly works with Python2 and Python3, but the only currently supported
 backend is Redis (currently via Lua scripts, but should ideally be rewritten
 as a C module in the future).
+
+In Python3, labels and values are returned as `bytes` by default. You can
+override the methods `_decode_edge_label` and `_decode_value` on your
+`TreeReader` instance to change the return type, these functions should expect
+a single positional argument of type `bytes`. In Python2, the default return
+type is `str` instead.
 
 Installation
 ============

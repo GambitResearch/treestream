@@ -79,12 +79,18 @@ def bfs_redis_tree(
 	"""
 		Params:
 			redis: Redis
-			starting_nodes: List[(node_ptr: str)]
-			children_key_prefix: str
+			starting_nodes: List[(node_ptr: bytes)]
+			children_key_prefix: bytes
 
-		Returns: Iterable[(from_node_ptr: str, to_node_ptr: str, arc_label: str)]
+		Returns: Iterable[(from_node_ptr: bytes, to_node_ptr: bytes, arc_label: bytes)]
 	"""
-	queue = deque([(str(node), 0) for node in starting_nodes]) # [(node_ptr: str, cursor: int)]
+
+	# [(node_ptr: bytes, cursor: int)]
+	queue = deque([(node if isinstance(node, bytes) else str(node).encode(), 0) for node in starting_nodes])
+
+	if not isinstance(children_key_prefix, bytes):
+		children_key_prefix = children_key_prefix.encode()
+
 	while queue:
 		queries = []
 		for _ in six.moves.xrange(max_queries_per_pipeline):
@@ -96,7 +102,7 @@ def bfs_redis_tree(
 		with redis.pipeline(transaction=False) as pipeline:
 			for node_ptr, cursor in queries:
 				# we're using socket_timeout, so can't block forever here
-				pipeline.hscan(children_key_prefix + str(node_ptr), cursor)
+				pipeline.hscan(children_key_prefix + node_ptr, cursor)
 			query_responses = pipeline.execute()
 		#print '%d hscans took %.3fs' % (len(queries), time() - t)
 
@@ -113,19 +119,17 @@ def bfs_redis_tree(
 def get_adjacency_dict(redis, starting_nodes, children_key_prefix, edge_decoding_func):
 	"""
 	Params: see bfs_redis_tree
-	Returns: adjacency_dict: { (node_ptr: str) -> {(arc_label: str) -> (child_ptr: str)} }
+	Returns: adjacency_dict: { (node_ptr: bytes) -> {(arc_label: bytes) -> (child_ptr: bytes)} }
 	"""
 	# Guarantee that each node appears at least once in this dict (either as a key or as a value)
-	adjacency_dict = {node: {} for node in starting_nodes}
+	adjacency_dict = {node if isinstance(node, bytes) else str(node).encode(): {} for node in starting_nodes}
 
 	for (node_ptr, subnode_ptr, subnode_name) in bfs_redis_tree(
 			redis,
 			starting_nodes,
 			children_key_prefix):
 
-		adjacent_nodes = adjacency_dict.get(node_ptr, None)
-		if adjacent_nodes is None:
-			adjacency_dict[node_ptr] = adjacent_nodes = {}
+		adjacent_nodes = adjacency_dict.setdefault(node_ptr, {})
 		adjacent_nodes[edge_decoding_func(subnode_name)] = subnode_ptr
 
 	return adjacency_dict
